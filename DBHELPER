@@ -1,0 +1,135 @@
+ internal class DBHelper
+    {
+        public static string GetConnectionString() { 
+            return ConfigurationManager.AppSettings["connstr"];
+        }
+
+        public static DataSet GetData(string strSQLQry)
+        {
+            string conStr = GetConnectionString();
+            SqlConnection con;
+            SqlCommand cmd;
+            SqlDataAdapter daSelect;
+            DataSet dsSelect = null;
+            DataTable dtData = new DataTable();
+            try
+            {
+                using (con = new SqlConnection(conStr))
+                {
+                    using (cmd = new SqlCommand(strSQLQry, con))
+                    {
+                        con.Open();
+                        daSelect = new SqlDataAdapter(cmd);
+                        dsSelect = new DataSet();
+                        daSelect.Fill(dsSelect);
+                        daSelect.Fill(dtData);
+
+                        try
+                        {
+                            var bIsJsonDebug = ConfigurationManager.AppSettings.Get("jsondebug");
+                            if (dtData != null && bIsJsonDebug == "1")
+                            {
+                                string _tableJson = DataTableToJSONWithStringBuilder(dtData);
+                                Log.info(_tableJson);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.info("Error in Filling DataTable: " + ex.Message + "-------\n" + ex.StackTrace + '\n');
+                        }
+
+                        Log.info("Count of sql dataset :" + GetDsRet(dsSelect).ToString() + " // SQlQuery :" + strSQLQry);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.info(" Getdata Exception : " + ex.Message + "////" + ex.StackTrace);
+            }
+           
+            return dsSelect;
+        }
+
+        public static string DataTableToJSONWithStringBuilder(DataTable table)
+        {
+            var JSONString = new StringBuilder();
+            if (table.Rows.Count > 0)
+            {
+                JSONString.Append("[");
+                for (int i = 0; i < table.Rows.Count; i++)
+                {
+                    JSONString.Append("{");
+                    for (int j = 0; j < table.Columns.Count; j++)
+                    {
+                        if (j < table.Columns.Count - 1)
+                        {
+                            JSONString.Append("\"" + table.Columns[j].ColumnName.ToString() + "\":" + "\"" + table.Rows[i][j].ToString() + "\",");
+                        }
+                        else if (j == table.Columns.Count - 1)
+                        {
+                            JSONString.Append("\"" + table.Columns[j].ColumnName.ToString() + "\":" + "\"" + table.Rows[i][j].ToString() + "\"");
+                        }
+                    }
+                    if (i == table.Rows.Count - 1)
+                    {
+                        JSONString.Append("}");
+                    }
+                    else
+                    {
+                        JSONString.Append("},");
+                    }
+                }
+                JSONString.Append("]");
+            }
+            return JSONString.ToString();
+        }
+
+        public static int GetExecute(string strSQLQry)
+        {
+            string conStr = GetConnectionString();
+            int iRes = 0;
+            SqlConnection objConnection = null;
+            SqlCommand objCmd = null;
+
+            try
+            {
+                objConnection = new SqlConnection(conStr);
+                objCmd = new SqlCommand(strSQLQry, objConnection);
+                objConnection.Open();
+                iRes = objCmd.ExecuteNonQuery();
+            }
+            catch (Exception e)
+            {
+                Log.info(e.Message);
+            }
+            finally
+            {
+                objCmd.Dispose();
+                if (objConnection.State == ConnectionState.Open)
+                    objConnection.Close();
+
+                objConnection.Dispose();
+            }
+            return iRes;
+        }
+
+        public static int GetDsRet(DataSet Ds)
+        {
+            if (Ds == null)
+            {
+                return 0;
+            }
+            else if (Ds.Tables.Count <= 0)
+            {
+                return 0;
+            }
+            else if (Ds.Tables[0].Rows.Count <= 0)
+            {
+                return 0;
+            }
+            else
+            {
+                return 1;
+            }
+        }
+    }
